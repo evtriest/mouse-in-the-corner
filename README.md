@@ -1,4 +1,4 @@
-# omarchy-mouse-helper
+# mouse-in-the-corner
 
 A small clickable grip in the **top-right corner of the focused window** for
 [Omarchy](https://omarchy.org/) 4 (Hyprland + Quickshell). Click it and a tiny
@@ -43,7 +43,7 @@ The plugin is discovered from `~/.config/omarchy/plugins/<anything>/`, and its
 manifest id (`eep.window-controls`) is what `shell.json` refers to.
 
 ```bash
-git clone https://github.com/<you>/omarchy-mouse-helper.git \
+git clone https://github.com/evtriest/mouse-in-the-corner.git \
   ~/.config/omarchy/plugins/eep.window-controls
 ```
 
