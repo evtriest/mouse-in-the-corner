@@ -133,6 +133,8 @@ Item {
     root.winW = 0
     root.winH = 0
     root.popupOpen = false
+    root.rows = []
+    root.moveKey = ""
   }
 
   function applySnapshot(raw) {
