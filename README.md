@@ -48,30 +48,17 @@ binding matches it.
 
 ## Install
 
-The plugin is discovered from `~/.config/omarchy/plugins/<anything>/`, and its
-manifest id (`eep.window-controls`) is what `shell.json` refers to.
+Use Omarchy's plugin manager to install the repository:
 
 ```bash
-git clone https://github.com/evtriest/mouse-in-the-corner.git \
-  ~/.config/omarchy/plugins/eep.window-controls
+omarchy plugin add https://github.com/evtriest/mouse-in-the-corner.git
 ```
 
-Then add it to `plugins` in `~/.config/omarchy/shell.json`:
-
-```json
-{
-  "plugins": [
-    { "id": "eep.window-controls" }
-  ]
-}
-```
-
-`shell.json` reloads on save. If the plugin does not appear, force a rescan or
-restart the shell:
+Plugins are added disabled so you can review their code before enabling them.
+After reviewing this plugin, enable it with its manifest id:
 
 ```bash
-omarchy-shell shell rescanPlugins
-omarchy restart shell
+omarchy plugin enable eep.window-controls
 ```
 
 Check that it is talking to the compositor:
@@ -82,16 +69,21 @@ omarchy-shell window-controls status
 
 ## Uninstall
 
-Remove the entry from `plugins` in `~/.config/omarchy/shell.json`, delete the
-plugin directory, and drop the stored size if you changed it:
+Remove the plugin with Omarchy's plugin manager. This removes its checkout and
+disables it in the shell configuration:
 
 ```bash
-rm -rf ~/.config/omarchy/plugins/eep.window-controls
+omarchy plugin remove eep.window-controls
+```
+
+If you changed the grip size and also want to reset the saved setting, remove
+its separate settings file:
+
+```bash
 rm -f ~/.config/omarchy/window-controls.json
 ```
 
-Nothing else is written outside that directory and that one JSON file; the
-plugin adds no autostart entry and no other configuration.
+The plugin adds no autostart entry or other configuration.
 
 ## Size
 

@@ -30,12 +30,12 @@ drops a pad with `↑ ↓ ← →` and `−` / `+`.
 Install (Omarchy Quattro, no extra packages):
 
 ```bash
-git clone https://github.com/evtriest/mouse-in-the-corner.git \
-  ~/.config/omarchy/plugins/eep.window-controls
+omarchy plugin add https://github.com/evtriest/mouse-in-the-corner.git
+# Review the plugin, then enable it:
+omarchy plugin enable eep.window-controls
 ```
 
-then add `{ "id": "eep.window-controls" }` to `plugins` in
-`~/.config/omarchy/shell.json`.
+Remove it with `omarchy plugin remove eep.window-controls`.
 
 MIT, one QML file, ~0.1 % of a core. Issues and PRs welcome — especially from
 anyone on a multi-monitor or non-2x setup.
