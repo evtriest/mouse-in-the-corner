@@ -19,11 +19,15 @@ pad drops down that resizes or moves the window — no keybinding to remember.
  └──────────────────────────────┘
 ```
 
+Only the moves that can actually happen are shown: a window already on the
+right edge of the layout gets no `Move right`, a full-width tile gets neither
+left nor right, and so on. The pad shrinks to fit whatever is left.
+
 ## Behaviour
 
 | Action | Tiled window | Floating window |
 | --- | --- | --- |
-| ↑ ↓ ← → | swaps the tile with its neighbour (like `SUPER+SHIFT+arrow`) | nudges it 80 px |
+| ↑ ↓ ← → | swaps the tile with its neighbour (like `SUPER+SHIFT+arrow`); hidden when no tile sits on that side | nudges it 80 px (always available) |
 | − / + | moves the shared split edge 80 px, so this window gets narrower/wider (grows along the stacked axis when the tile is full width) | resizes it 80 px |
 
 - The grip only appears for the focused window, and is hidden for fullscreen
@@ -85,6 +89,7 @@ The `readonly` values at the top of `WindowControls.qml`:
 | `step` | `80` | px per resize/nudge click |
 | `pollInterval` | `300` | ms between `hyprctl` geometry refreshes |
 | `autoCloseMs` | `6000` | idle time before the pad closes itself |
+| `neighborTolerance` | `60` | how big a gap/border still counts as "a tile next to me" |
 
 The grip is semi-transparent until you hover it, and takes its colours from the
 current Omarchy theme (`menu.background` / `menu.text` / `menu.border`).
@@ -104,8 +109,9 @@ Also available: `omarchy-shell window-controls act wider` (and `narrower`,
 ## How it works
 
 Hyprland has no per-window decoration to hang a widget off, so the plugin polls
-`hyprctl -j activewindow` + `hyprctl -j monitors` every 300 ms (about 0.1 % of a
-core), computes the window's top-right corner on its output, and places a
+`hyprctl -j activewindow`, `-j monitors` and `-j clients` every 300 ms (about
+0.1 % of a core), works out which tiles touch which side of the focused window,
+computes its top-right corner on its output, and places a
 transparent full-screen layer-shell surface per monitor whose input region is
 masked down to the grip. The rest of that surface never eats clicks meant for
 the application. The pad is a second masked surface, created only while it is
