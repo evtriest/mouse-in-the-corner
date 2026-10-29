@@ -1,8 +1,9 @@
 # mouse-in-the-corner
 
-A small clickable grip in the **top-right corner of the focused window** for
-[Omarchy](https://omarchy.org/) 4 (Hyprland + Quickshell). Click it and a tiny
-pad drops down that resizes or moves the window — no keybinding to remember.
+A small clickable **mousetrap** in the top-right corner of the focused window
+for [Omarchy](https://omarchy.org/) 4 (Hyprland + Quickshell). Click it and a
+tiny pad drops down that resizes or moves the window — no keybinding to
+remember.
 
 The grip, idle — top-right corner of the focused window:
 
@@ -79,13 +80,47 @@ Check that it is talking to the compositor:
 omarchy-shell window-controls status
 ```
 
+## Uninstall
+
+Remove the entry from `plugins` in `~/.config/omarchy/shell.json`, delete the
+plugin directory, and drop the stored size if you changed it:
+
+```bash
+rm -rf ~/.config/omarchy/plugins/eep.window-controls
+rm -f ~/.config/omarchy/window-controls.json
+```
+
+Nothing else is written outside that directory and that one JSON file; the
+plugin adds no autostart entry and no other configuration.
+
+## Size
+
+The grip starts at 34 px. Resize it without touching any file:
+
+```bash
+omarchy-shell window-controls size 44    # anywhere from 16 to 96 px
+omarchy-shell window-controls status     # reports the current "buttonSize"
+```
+
+The new size applies immediately and is remembered: it is written to
+`~/.config/omarchy/window-controls.json` and re-read when the shell starts, so
+a restart, a logout or a `git pull` keeps the size you chose. The file lives
+outside the plugin directory, so it never shows up as a local change in git.
+
+Anything outside 16–96 px is refused rather than drawn: a size below the
+minimum is unusable, so it stays at 16 px and you get a desktop notification
+saying so (same for anything above the maximum, which stays at 96 px). Want the
+stock grip back? Disable and remove the plugin and clone it again from GitHub,
+or delete `~/.config/omarchy/window-controls.json`.
+
 ## Tuning
 
-The `readonly` values at the top of `WindowControls.qml`:
+The values at the top of `WindowControls.qml`:
 
 | Property | Default | Meaning |
 | --- | --- | --- |
-| `buttonSize` | `26` | size of the grip in px |
+| `buttonSize` | `34` | size of the grip in px (change it with the `size` command above) |
+| `minButtonSize` / `maxButtonSize` | `16` / `96` | the range `size` accepts |
 | `buttonInset` | `6` | how far inside the window's top-right corner it sits |
 | `step` | `80` | px per resize/nudge click |
 | `pollInterval` | `300` | ms between `hyprctl` geometry refreshes |
@@ -105,7 +140,8 @@ o.bind("SUPER + SHIFT + W", "Window pad", "omarchy-shell window-controls toggle"
 ```
 
 Also available: `omarchy-shell window-controls act wider` (and `narrower`,
-`left`, `right`, `up`, `down`).
+`left`, `right`, `up`, `down`), and `omarchy-shell window-controls size 44` for
+the grip size.
 
 ## How it works
 
@@ -120,12 +156,20 @@ open.
 
 ## Limitations
 
-- The grip covers a 26×26 px spot of the focused window's own top-right corner;
-  increase `buttonInset` or change `buttonX`/`buttonY` if that overlaps something
-  you click in a particular app.
+- The grip covers a 34×34 px spot of the focused window's own top-right corner;
+  make it smaller with the `size` command (16 px is the minimum), or increase
+  `buttonInset` if that overlaps something you click in a particular app.
 - Positions assume the geometry `hyprctl clients` reports (layout/logical
   pixels). Windows mid-drag or mid-animation may lag a frame behind.
 - Only tested on a single-output setup at `scale = 2`.
+
+## Credits
+
+Created by **Eep van Triest** — [github.com/evtriest](https://github.com/evtriest).
+
+Built with [Freebuff](https://freebuff.com), running DeepSeek V4.1 Flash 10/17.
+The mousetrap mark is drawn in QML, so it scales with the grip instead of
+relying on an icon font.
 
 ## License
 

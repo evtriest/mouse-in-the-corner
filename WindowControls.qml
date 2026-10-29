@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -19,7 +20,11 @@ Item {
   property var manifest: null
 
   // -------------------------------------------------------------- tuning
-  readonly property int buttonSize: 26
+  // buttonSize is the starting size and the live value; change it with
+  // `omarchy-shell window-controls size <px>` (kept across shell restarts).
+  property int buttonSize: 34
+  readonly property int minButtonSize: 16   // below this the grip stops being clickable
+  readonly property int maxButtonSize: 96
   readonly property int buttonInset: 6      // px inside the window's top-right corner
   readonly property int step: 80            // px per resize / nudge click
   readonly property int pollInterval: 300   // ms between geometry refreshes
@@ -79,6 +84,53 @@ Item {
   readonly property int popupY: popupAbove
     ? Math.max(4, buttonY - popupHeight - popupGap)
     : buttonY + buttonSize + popupGap
+
+  // -------------------------------------------------------------- settings
+  // The size lives outside the plugin directory, so `git pull` never conflicts
+  // with it: ~/.config/omarchy/window-controls.json, {"buttonSize": 34}
+  readonly property string settingsPath: "$HOME/.config/omarchy/window-controls.json"
+
+  function notify(message) {
+    Quickshell.execDetached(["omarchy-notification-send", "Window controls", message])
+  }
+
+  function setSize(value, persist) {
+    var px = Math.round(Number(value))
+    if (!isFinite(px)) {
+      root.notify("\"" + value + "\" is not a pixel size. The grip stays at "
+        + root.buttonSize + " px (allowed: " + root.minButtonSize + "–" + root.maxButtonSize + ").")
+      return root.buttonSize
+    }
+
+    var clamped = Math.max(root.minButtonSize, Math.min(root.maxButtonSize, px))
+    root.buttonSize = clamped
+
+    if (clamped !== px) {
+      root.notify(px + " px is out of range, so the grip stays at " + clamped + " px ("
+        + root.minButtonSize + "–" + root.maxButtonSize + " px)."
+        + " Want the stock size back? Remove the plugin and clone it from GitHub again.")
+    }
+
+    if (persist) root.saveSize(clamped)
+    return clamped
+  }
+
+  function saveSize(px) {
+    Quickshell.execDetached(["sh", "-c",
+      "mkdir -p \"$(dirname \"" + root.settingsPath + "\")\" && "
+      + "printf '{\"buttonSize\": %s}\\n' " + px + " > \"" + root.settingsPath + "\""])
+  }
+
+  function applySettings(raw) {
+    if (!raw || raw.trim() === "") return   // never configured: keep the default
+    var parsed
+    try { parsed = JSON.parse(raw) } catch (error) { return }
+    if (parsed && parsed.buttonSize !== undefined) root.setSize(parsed.buttonSize, false)
+  }
+
+  function loadSettings() {
+    if (!settingsProc.running) settingsProc.running = true
+  }
 
   // --------------------------------------------------------------- actions
   // Dispatch through Hyprland's Lua dispatchers, addressed by window so the
@@ -355,7 +407,20 @@ Item {
     }
   }
 
-  Component.onCompleted: root.refreshHotkeys()
+  Process {
+    id: settingsProc
+    running: false
+    command: ["sh", "-c", "cat \"" + root.settingsPath + "\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.applySettings(text)
+    }
+  }
+
+  Component.onCompleted: {
+    root.refreshHotkeys()
+    root.loadSettings()
+  }
 
   Process {
     id: queryProc
@@ -385,6 +450,16 @@ Item {
       return "ok"
     }
 
+    // `omarchy-shell window-controls size 44`; `status` reports the current size.
+    function size(value: string): string {
+      root.setSize(value, true)
+      return JSON.stringify({
+        buttonSize: root.buttonSize,
+        min: root.minButtonSize,
+        max: root.maxButtonSize
+      })
+    }
+
     function status(): string {
       return JSON.stringify({
         address: root.address,
@@ -396,6 +471,7 @@ Item {
         rows: root.rows.map(function(row) { return row.kind }),
         hints: root.rows.map(function(row) { return root.hotkeyFor(row.kind) }),
         screen: root.screenName,
+        buttonSize: root.buttonSize,
         buttonX: root.buttonX,
         buttonY: root.buttonY,
         open: root.popupOpen
@@ -446,27 +522,57 @@ Item {
         border.color: Commons.Color.menu.border
         opacity: handleArea.containsMouse || root.popupOpen ? 0.95 : 0.5
 
-        // Two diagonal ticks read as a resize grip without depending on a glyph.
-        Rectangle {
-          width: Math.round(handle.width * 0.5)
-          height: 1
-          rotation: -45
-          radius: 1
-          color: Commons.Color.menu.text
-          anchors.centerIn: parent
-          anchors.horizontalCenterOffset: -2
-          anchors.verticalCenterOffset: -2
-        }
+        // A mousetrap: board, cocked snap wire and a bit of bait. Drawn as
+        // shapes rather than taken from a glyph, so it scales with any size.
+        readonly property color iconColor: Commons.Color.menu.text
 
-        Rectangle {
-          width: Math.round(handle.width * 0.3)
-          height: 1
-          rotation: -45
-          radius: 1
-          color: Commons.Color.menu.text
+        Item {
           anchors.centerIn: parent
-          anchors.horizontalCenterOffset: 3
-          anchors.verticalCenterOffset: 3
+          width: 100
+          height: 100
+          scale: (handle.width * 0.74) / 100
+
+          Shape {
+            anchors.fill: parent
+            preferredRendererType: Shape.CurveRenderer
+
+            // board
+            ShapePath {
+              strokeWidth: 0
+              fillColor: handle.iconColor
+              PathMove { x: 3; y: 74 }
+              PathLine { x: 97; y: 74 }
+              PathLine { x: 97; y: 84 }
+              PathLine { x: 3; y: 84 }
+              PathLine { x: 3; y: 74 }
+            }
+
+            // the snap wire, cocked over the board
+            ShapePath {
+              strokeColor: handle.iconColor
+              strokeWidth: 9
+              fillColor: "transparent"
+              capStyle: ShapePath.RoundCap
+              PathAngleArc {
+                centerX: 46
+                centerY: 74
+                radiusX: 30
+                radiusY: 30
+                startAngle: 180
+                sweepAngle: 180
+              }
+            }
+
+            // a wedge of bait on the trigger plate, under the wire
+            ShapePath {
+              strokeWidth: 0
+              fillColor: handle.iconColor
+              PathMove { x: 35; y: 73 }
+              PathLine { x: 55; y: 73 }
+              PathLine { x: 51; y: 59 }
+              PathLine { x: 35; y: 73 }
+            }
+          }
         }
 
         MouseArea {
