@@ -25,7 +25,7 @@ Item {
   readonly property int pollInterval: 300   // ms between geometry refreshes
   readonly property int autoCloseMs: 6000   // pad closes itself after this much idle
 
-  readonly property int popupWidth: 152
+  readonly property int popupWidth: 216
   readonly property int rowHeight: 24
   readonly property int rowGap: 2
   readonly property int popupPadding: 6
@@ -47,6 +47,10 @@ Item {
   // torn down on every geometry poll.
   property var rows: []
   property string moveKey: ""
+
+  // description → keybinding, read from Omarchy's own keybinding cache so each
+  // row can show the hotkey that does the same thing.
+  property var keyDescriptions: ({})
 
   readonly property int popupHeight: popupPadding * 2 + rowHeight * rows.length
     + rowGap * Math.max(0, rows.length - 1)
@@ -86,21 +90,9 @@ Item {
     var expression = ""
 
     if (kind === "wider" || kind === "narrower") {
-      var magnitude = kind === "wider" ? root.step : -root.step
-      var dx = 0
-      var dy = 0
-      if (root.winFloating) {
-        dx = magnitude
-      } else if (root.winW < root.screenWidth - 4) {
-        // Side-by-side tiles share a vertical edge, so the delta grows the
-        // window only when it moves that edge away from the screen centre.
-        dx = (root.winX + root.winW / 2) < root.screenWidth / 2 ? magnitude : -magnitude
-      } else {
-        // Stacked tiles share a horizontal edge instead.
-        dy = (root.winY + root.winH / 2) < root.screenHeight / 2 ? magnitude : -magnitude
-      }
-      expression = 'hl.dsp.window.resize({ window = "' + target + '", x = ' + dx
-        + ', y = ' + dy + ', relative = true })'
+      var delta = root.resizeDelta(kind === "wider" ? root.step : -root.step)
+      expression = 'hl.dsp.window.resize({ window = "' + target + '", x = ' + delta.x
+        + ', y = ' + delta.y + ', relative = true })'
     } else if (root.winFloating) {
       var nudgeX = kind === "left" ? -root.step : (kind === "right" ? root.step : 0)
       var nudgeY = kind === "up" ? -root.step : (kind === "down" ? root.step : 0)
@@ -121,7 +113,10 @@ Item {
   function togglePopup() {
     if (!root.hasWindow) return
     root.popupOpen = !root.popupOpen
-    if (root.popupOpen) autoCloseTimer.restart()
+    if (root.popupOpen) {
+      root.refreshHotkeys()
+      autoCloseTimer.restart()
+    }
   }
 
   function closePopup() {
@@ -252,6 +247,70 @@ Item {
     return out
   }
 
+  // Which way the shared edge has to move for this window to grow. Used both by
+  // the action itself and by the hotkey hint, so they can never disagree.
+  function resizeDelta(magnitude) {
+    var delta = { x: 0, y: 0 }
+    if (root.winFloating) {
+      delta.x = magnitude
+    } else if (root.winW < root.screenWidth - 4) {
+      // Side-by-side tiles share a vertical edge, so the delta grows the window
+      // only when it moves that edge away from the screen centre.
+      delta.x = (root.winX + root.winW / 2) < root.screenWidth / 2 ? magnitude : -magnitude
+    } else {
+      // Stacked tiles share a horizontal edge instead.
+      delta.y = (root.winY + root.winH / 2) < root.screenHeight / 2 ? magnitude : -magnitude
+    }
+    return delta
+  }
+
+  // Omarchy's cache stores lines shaped `SUPER SHIFT + LEFT<spaces> → Description	kind	dispatch`.
+  function applyKeybindings(raw) {
+    var map = ({})
+    var lines = String(raw || "").split("\n")
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i]
+      if (!line) continue
+      var arrow = line.indexOf("→")
+      if (arrow < 0) continue
+      var keys = root.prettyKeys(line.slice(0, arrow).trim())
+      var rest = line.slice(arrow + 1)
+      var tab = rest.indexOf("\t")
+      var description = (tab < 0 ? rest : rest.slice(0, tab)).trim()
+      if (description !== "" && keys !== "") map[description] = keys
+    }
+    root.keyDescriptions = map
+  }
+
+  function prettyKeys(keys) {
+    return String(keys || "")
+      .replace(/\bMINUS\b/, "−")
+      .replace(/\bEQUAL\b/, "=")
+      .replace(/\bLEFT\b/, "←")
+      .replace(/\bRIGHT\b/, "→")
+      .replace(/\bUP\b/, "↑")
+      .replace(/\bDOWN\b/, "↓")
+  }
+
+  function hotkeyFor(kind) {
+    var descriptions = root.keyDescriptions || ({})
+    if (kind === "up") return descriptions["Swap window up"] || ""
+    if (kind === "down") return descriptions["Swap window down"] || ""
+    if (kind === "left") return descriptions["Swap window to the left"] || ""
+    if (kind === "right") return descriptions["Swap window to the right"] || ""
+    if (!root.hasWindow) return ""
+    var delta = root.resizeDelta(kind === "wider" ? root.step : -root.step)
+    if (delta.y < 0) return descriptions["Shrink window up"] || ""
+    if (delta.y > 0) return descriptions["Expand window down"] || ""
+    if (delta.x < 0) return descriptions["Expand window left"] || ""
+    if (delta.x > 0) return descriptions["Shrink window left"] || ""
+    return ""
+  }
+
+  function refreshHotkeys() {
+    if (!keybindingsProc.running) keybindingsProc.running = true
+  }
+
   function applyRows(moves, floating) {
     var key = floating ? "floating" : ["left", "right", "up", "down"].map(function(kind) {
       return moves[kind] === true ? kind.charAt(0) : "-"
@@ -275,6 +334,26 @@ Item {
     interval: root.autoCloseMs
     onTriggered: root.closePopup()
   }
+
+  // Omarchy resolves the keys for `code:` and Lua binds into a cache file (it is
+  // what SUPER+K reads); rebuild it once if this machine has never opened the
+  // keybindings menu, then read it.
+  Process {
+    id: keybindingsProc
+    running: false
+    command: ["sh", "-c",
+      "dir=\"$HOME/.cache/omarchy\"; "
+      + "f=$(ls -t \"$dir\"/keybindings-*.records 2>/dev/null | head -n1); "
+      + "if [ -z \"$f\" ]; then omarchy menu keybindings --print >/dev/null 2>&1; "
+      + "f=$(ls -t \"$dir\"/keybindings-*.records 2>/dev/null | head -n1); fi; "
+      + "[ -n \"$f\" ] && cat \"$f\""]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.applyKeybindings(text)
+    }
+  }
+
+  Component.onCompleted: root.refreshHotkeys()
 
   Process {
     id: queryProc
@@ -313,6 +392,7 @@ Item {
         height: root.winH,
         floating: root.winFloating,
         rows: root.rows.map(function(row) { return row.kind }),
+        hints: root.rows.map(function(row) { return root.hotkeyFor(row.kind) }),
         screen: root.screenName,
         buttonX: root.buttonX,
         buttonY: root.buttonY,
@@ -468,14 +548,27 @@ Item {
               Text {
                 anchors.left: parent.left
                 anchors.leftMargin: 26
-                anchors.right: parent.right
-                anchors.rightMargin: 4
+                anchors.right: hintText.left
+                anchors.rightMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
                 text: row.modelData.label
                 elide: Text.ElideRight
                 font.family: Style.font.menuFamily
                 font.pixelSize: Style.font.body
                 color: rowArea.containsMouse ? Commons.Color.menu.selectedText : Commons.Color.menu.text
+              }
+
+              // The hotkey that does the same thing, so the pad teaches the keys.
+              Text {
+                id: hintText
+                anchors.right: parent.right
+                anchors.rightMargin: 4
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.hotkeyFor(row.modelData.kind)
+                font.family: Style.font.menuFamily
+                font.pixelSize: Style.font.caption
+                color: rowArea.containsMouse ? Commons.Color.menu.selectedText : Commons.Color.menu.text
+                opacity: rowArea.containsMouse ? 0.85 : 0.5
               }
 
               MouseArea {

@@ -8,13 +8,21 @@ The grip, idle — top-right corner of the focused window:
 
 ![The grip in the corner of the focused window](docs/grip.png)
 
-The pad, open. This window is the right-hand tile, so it has no `Move right`:
+The pad, open. This window is the right-hand tile, so it has no `Move right`,
+and each row carries the hotkey that does the same thing:
 
-![The open pad offering Move left, Narrower and Wider](docs/pad.png)
+![The open pad offering Move left, Narrower and Wider, each with its hotkey on the right](docs/pad.png)
 
 Only the moves that can actually happen are shown: a window already on the
 right edge of the layout gets no `Move right`, a full-width tile gets neither
 left nor right, and so on. The pad shrinks to fit whatever is left.
+
+Each row also shows the hotkey that does the same thing (`SUPER SHIFT + ←`,
+`SUPER + −`, …), so you learn the keyboard route as you click. The hints are
+read from Omarchy's own keybinding cache — the one `SUPER+K` builds — which
+means they follow your bindings rather than a hardcoded list. They are
+refreshed every time the pad opens, and a row simply shows no hint when no
+binding matches it.
 
 ## Behaviour
 
