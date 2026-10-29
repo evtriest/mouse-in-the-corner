@@ -4,20 +4,13 @@ A small clickable grip in the **top-right corner of the focused window** for
 [Omarchy](https://omarchy.org/) 4 (Hyprland + Quickshell). Click it and a tiny
 pad drops down that resizes or moves the window — no keybinding to remember.
 
-```
- ┌──────────────────────────────┐
- │                          ◤   │  ← grip (20×20, follows the focused window)
- │  ┌──────────────┐            │
- │  │ ↑  Move up   │            │
- │  │ ↓  Move down │            │
- │  │ ←  Move left │            │
- │  │ →  Move right│            │
- │  │ −  Narrower  │            │
- │  │ +  Wider     │            │
- │  └──────────────┘            │
- │                              │
- └──────────────────────────────┘
-```
+The grip, idle — top-right corner of the focused window:
+
+![The grip in the corner of the focused window](docs/grip.png)
+
+The pad, open. This window is the right-hand tile, so it has no `Move right`:
+
+![The open pad offering Move left, Narrower and Wider](docs/pad.png)
 
 Only the moves that can actually happen are shown: a window already on the
 right edge of the layout gets no `Move right`, a full-width tile gets neither
@@ -84,8 +77,8 @@ The `readonly` values at the top of `WindowControls.qml`:
 
 | Property | Default | Meaning |
 | --- | --- | --- |
-| `buttonSize` | `20` | size of the grip in px |
-| `buttonInset` | `5` | how far inside the window's top-right corner it sits |
+| `buttonSize` | `26` | size of the grip in px |
+| `buttonInset` | `6` | how far inside the window's top-right corner it sits |
 | `step` | `80` | px per resize/nudge click |
 | `pollInterval` | `300` | ms between `hyprctl` geometry refreshes |
 | `autoCloseMs` | `6000` | idle time before the pad closes itself |
@@ -119,7 +112,7 @@ open.
 
 ## Limitations
 
-- The grip covers a 20×20 px spot of the focused window's own top-right corner;
+- The grip covers a 26×26 px spot of the focused window's own top-right corner;
   increase `buttonInset` or change `buttonX`/`buttonY` if that overlaps something
   you click in a particular app.
 - Positions assume the geometry `hyprctl clients` reports (layout/logical

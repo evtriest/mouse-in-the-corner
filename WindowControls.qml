@@ -19,8 +19,8 @@ Item {
   property var manifest: null
 
   // -------------------------------------------------------------- tuning
-  readonly property int buttonSize: 20
-  readonly property int buttonInset: 5      // px inside the window's top-right corner
+  readonly property int buttonSize: 26
+  readonly property int buttonInset: 6      // px inside the window's top-right corner
   readonly property int step: 80            // px per resize / nudge click
   readonly property int pollInterval: 300   // ms between geometry refreshes
   readonly property int autoCloseMs: 6000   // pad closes itself after this much idle
