@@ -1,7 +1,8 @@
 # Announcing mouse-in-the-corner
 
 Copy for the places Omarchy plugins get discovered. Post from the maintainer
-account, with `docs/pad.png` or a short screen recording.
+account, with `docs/demo.gif` — it captions each step (grip, pad, `Wider`,
+`Narrower`) so it works without a voiceover — or `docs/pad.png` as a still.
 
 ## One-liner
 
@@ -26,6 +27,10 @@ drops a pad with `↑ ↓ ← →` and `−` / `+`.
   It remembers the size across restarts.
 - Optional: bind the pad to a key with
   `omarchy-shell window-controls toggle`.
+
+The GIF is a real terminal, unedited: the grip sits in its corner, the pad opens
+under it, then `Wider` and `Narrower` are clicked in turn and the window edge
+follows.
 
 Install (Omarchy Quattro, no extra packages):
 
@@ -55,5 +60,5 @@ The listing goes through the community registry:
 
 - [ ] `git push` is up to date and `main` is the default branch
 - [ ] README install + uninstall verified on a clean shell
-- [ ] a short GIF or screen recording is attached to the post (people click those)
+- [ ] `docs/demo.gif` is attached and plays in the timeline (people click those)
 - [ ] reply to questions in the thread — the first day decides how far it travels
