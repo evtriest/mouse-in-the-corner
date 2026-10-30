@@ -53,7 +53,7 @@ The listing goes through the community registry:
 
 - Repository: <https://github.com/evtriest/mouse-in-the-corner>
 - Category: `Desktop`
-- Tags: `hyprland`, `quickshell`, `system`
+- Tags: `Hyprland`, `Quickshell`, `System` (the form takes at most three)
 - Preview: `preview.png` in the repository root
 
 ## Checklist before posting
