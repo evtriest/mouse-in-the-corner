@@ -5,14 +5,9 @@ for [Omarchy](https://omarchy.org/) 4 (Hyprland + Quickshell). Click it and a
 tiny pad drops down that resizes or moves the window — no keybinding to
 remember.
 
-The grip, idle — top-right corner of the focused window:
+Quick demo — click the corner grip to open the pad and see the available move/resize actions and their matching hotkeys:
 
-![The grip in the corner of the focused window](docs/grip.png)
-
-The pad, open. This window is the right-hand tile, so it has no `Move right`,
-and each row carries the hotkey that does the same thing:
-
-![The open pad offering Move left, Narrower and Wider, each with its hotkey on the right](docs/pad.png)
+![Animated demo of the corner grip opening the window-control pad](docs/demo.gif)
 
 Only the moves that can actually happen are shown: a window already on the
 right edge of the layout gets no `Move right`, a full-width tile gets neither
