@@ -6,7 +6,7 @@ import Quickshell.Wayland
 import qs.Commons
 import qs.Commons as Commons
 
-// A small handle in the top-right corner of the focused window. Clicking it
+// A small handle in the top-left corner of the focused window. Clicking it
 // opens a pad with six actions: wider, narrower and move up/down/left/right.
 //
 // Hyprland has no per-window decoration we can hang a widget off, so the
@@ -25,7 +25,7 @@ Item {
   property int buttonSize: 34
   readonly property int minButtonSize: 16   // below this the grip stops being clickable
   readonly property int maxButtonSize: 96
-  readonly property int buttonInset: 6      // px inside the window's top-right corner
+  readonly property int buttonInset: 6      // px inside the window's top-left corner
   readonly property int step: 80            // px per resize / nudge click
   readonly property int pollInterval: 300   // ms between geometry refreshes
   readonly property int autoCloseMs: 6000   // pad closes itself after this much idle
@@ -76,9 +76,11 @@ Item {
   property bool popupOpen: false
 
   // -------------------------------------------------------------- geometry
-  readonly property int buttonX: Math.round(winX + winW - buttonInset - buttonSize)
+  readonly property int buttonX: Math.round(winX + buttonInset)
   readonly property int buttonY: Math.round(winY + buttonInset)
-  readonly property int popupX: Math.max(4, Math.min(buttonX + buttonSize - popupWidth,
+  // The pad hangs to the right of the grip; clamp it to the screen, so a grip
+  // near the screen's right edge still opens a fully visible pad.
+  readonly property int popupX: Math.max(4, Math.min(buttonX,
                                                    Math.max(4, screenWidth - popupWidth - 4)))
   readonly property bool popupAbove: buttonY + buttonSize + popupGap + popupHeight > screenHeight
   readonly property int popupY: popupAbove

@@ -14,7 +14,7 @@ account, with `docs/demo.gif` — it captions each step (grip, pad, `Wider`,
 **mouse-in-the-corner — resize or move a window from its own corner**
 
 Hyprland has no per-window buttons, so this is a small Quickshell overlay: a
-mousetrap appears in the top-right corner of the focused window, and clicking it
+mousetrap appears in the top-left corner of the focused window, and clicking it
 drops a pad with `↑ ↓ ← →` and `−` / `+`.
 
 - Tiled window: the arrows swap the tile with its neighbour, `−`/`+` moves the

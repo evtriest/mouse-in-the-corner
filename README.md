@@ -1,6 +1,6 @@
 # mouse-in-the-corner
 
-A small clickable **mousetrap** in the top-right corner of the focused window
+A small clickable **mousetrap** in the top-left corner of the focused window
 for [Omarchy](https://omarchy.org/) 4 (Hyprland + Quickshell). Click it and a
 tiny pad drops down that resizes or moves the window — no keybinding to
 remember.
@@ -108,7 +108,7 @@ The values at the top of `WindowControls.qml`:
 | --- | --- | --- |
 | `buttonSize` | `34` | size of the grip in px (change it with the `size` command above) |
 | `minButtonSize` / `maxButtonSize` | `16` / `96` | the range `size` accepts |
-| `buttonInset` | `6` | how far inside the window's top-right corner it sits |
+| `buttonInset` | `6` | how far inside the window's top-left corner it sits |
 | `step` | `80` | px per resize/nudge click |
 | `pollInterval` | `300` | ms between `hyprctl` geometry refreshes |
 | `autoCloseMs` | `6000` | idle time before the pad closes itself |
@@ -135,7 +135,7 @@ the grip size.
 Hyprland has no per-window decoration to hang a widget off, so the plugin polls
 `hyprctl -j activewindow`, `-j monitors` and `-j clients` every 300 ms (about
 0.1 % of a core), works out which tiles touch which side of the focused window,
-computes its top-right corner on its output, and places a
+computes its top-left corner on its output, and places a
 transparent full-screen layer-shell surface per monitor whose input region is
 masked down to the grip. The rest of that surface never eats clicks meant for
 the application. The pad is a second masked surface, created only while it is
@@ -143,7 +143,7 @@ open.
 
 ## Limitations
 
-- The grip covers a 34×34 px spot of the focused window's own top-right corner;
+- The grip covers a 34×34 px spot of the focused window's own top-left corner;
   make it smaller with the `size` command (16 px is the minimum), or increase
   `buttonInset` if that overlaps something you click in a particular app.
 - Positions assume the geometry `hyprctl clients` reports (layout/logical
