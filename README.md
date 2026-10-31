@@ -1,6 +1,6 @@
 # mouse-in-the-corner
 
-A small clickable **mousetrap** in the corner of the focused window plus a **cat button** in the bar for [Omarchy](https://omarchy.org/) 4 (Hyprland + Quickshell). Click the grip and a tiny pad drops down that resizes or moves the window — no keybinding to remember.
+A small clickable **mousetrap** in the corner of the focused window plus a **cat button** in the bar for [Omarchy](https://omarchy.org/) 4 (Hyprland + Quickshell). Click the grip and a tiny pad opens beside it that resizes or moves the window — no keybinding to remember.
 
 Quick demo — the grip, the pad it opens, and a `Wider` / `Narrower` click acting on the window:
 
@@ -8,7 +8,8 @@ Quick demo — the grip, the pad it opens, and a `Wider` / `Narrower` click acti
 
 Only the moves that can actually happen are shown: a window already on the
 right edge of the layout gets no `Move right`, a full-width tile gets neither
-left nor right, and so on. The pad shrinks to fit whatever is left.
+left nor right, a side-by-side tile gets no `Taller` / `Shorter`, and so on.
+The pad shrinks to fit whatever is left.
 
 Each row also shows the hotkey that does the same thing (`SUPER SHIFT + ←`,
 `SUPER + −`, …), so you learn the keyboard route as you click. The hints are
@@ -42,6 +43,7 @@ seconds. It is purely cosmetic — it does not steal focus or block input.
 | --- | --- | --- |
 | ↑ ↓ ← → | swaps the tile with its neighbour (like `SUPER+SHIFT+arrow`); hidden when no tile sits on that side | nudges it 80 px (always available) |
 | − / + | moves the shared split edge 80 px, so this window gets narrower/wider (grows along the stacked axis when the tile is full width) | resizes it 80 px |
+| ↥ / ↧ | moves the shared horizontal edge 80 px, so the tile gets taller/shorter; offered on full-width tiles, hidden when the window already fills the height | changes its height 80 px |
 
 - The grip only appears for the focused window, and is hidden for fullscreen
   windows and when the workspace is not visible.
@@ -143,7 +145,8 @@ o.bind("SUPER + SHIFT + W", "Window pad", "omarchy-shell window-controls toggle"
 ```
 
 Also available: `omarchy-shell window-controls act wider` (and `narrower`,
-`left`, `right`, `up`, `down`), and `omarchy-shell window-controls size 44` for
+`taller`, `shorter`, `left`, `right`, `up`, `down`), and
+`omarchy-shell window-controls size 44` for
 the grip size.
 
 ## How it works
