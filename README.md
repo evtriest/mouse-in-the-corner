@@ -1,9 +1,6 @@
 # mouse-in-the-corner
 
-A small clickable **mousetrap** in the top-left corner of the focused window
-for [Omarchy](https://omarchy.org/) 4 (Hyprland + Quickshell). Click it and a
-tiny pad drops down that resizes or moves the window — no keybinding to
-remember.
+A small clickable **mousetrap** in the corner of the focused window plus a **cat button** in the bar for [Omarchy](https://omarchy.org/) 4 (Hyprland + Quickshell). Click the grip and a tiny pad drops down that resizes or moves the window — no keybinding to remember.
 
 Quick demo — the grip, the pad it opens, and a `Wider` / `Narrower` click acting on the window:
 
@@ -19,6 +16,25 @@ read from Omarchy's own keybinding cache — the one `SUPER+K` builds — which
 means they follow your bindings rather than a hardcoded list. They are
 refreshed every time the pad opens, and a row simply shows no hint when no
 binding matches it.
+
+## Bar menu
+
+A cat button sits in the Omarchy bar. Left click opens a menu with:
+
+- **Grip corner** — pick any corner of the focused window (`tl`, `tr`, `bl`,
+  `br`). Switching corner plays a short corner-chase animation.
+- **Keybinding hints** — toggle the hotkey labels on the pad on/off.
+- **Grip on/off** — a toggle switch that hides the grip entirely while keeping
+  the plugin loaded. Right-clicking the bar button also toggles it.
+- While the grip is off the cat button shows a sleeping icon (󰄛󰒲).
+
+## Corner chase animation
+
+Every time the corner changes or the grip is switched back on, a one-shot
+overlay plays: a mouse darts across the screen, visits another window along the
+way, then changes course and races into the picked corner while a cat chases it
+and leaps to catch it. The animation is click-through and lasts about five
+seconds. It is purely cosmetic — it does not steal focus or block input.
 
 ## Behaviour
 
@@ -108,7 +124,7 @@ The values at the top of `WindowControls.qml`:
 | --- | --- | --- |
 | `buttonSize` | `34` | size of the grip in px (change it with the `size` command above) |
 | `minButtonSize` / `maxButtonSize` | `16` / `96` | the range `size` accepts |
-| `buttonInset` | `6` | how far inside the window's top-left corner it sits |
+| `buttonInset` | `6` | how far inside the window's corner it sits |
 | `step` | `80` | px per resize/nudge click |
 | `pollInterval` | `300` | ms between `hyprctl` geometry refreshes |
 | `autoCloseMs` | `6000` | idle time before the pad closes itself |
@@ -143,8 +159,8 @@ open.
 
 ## Limitations
 
-- The grip covers a 34×34 px spot of the focused window's own top-left corner;
-  make it smaller with the `size` command (16 px is the minimum), or increase
+- The grip covers a 34×34 px spot of the focused window's own corner; make it
+  smaller with the `size` command (16 px is the minimum), or increase
   `buttonInset` if that overlaps something you click in a particular app.
 - Positions assume the geometry `hyprctl clients` reports (layout/logical
   pixels). Windows mid-drag or mid-animation may lag a frame behind.
