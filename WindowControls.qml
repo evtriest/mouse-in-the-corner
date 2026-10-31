@@ -6,8 +6,10 @@ import Quickshell.Wayland
 import qs.Commons
 import qs.Commons as Commons
 
-// A small handle in the top-left corner of the focused window. Clicking it
-// opens a pad with six actions: wider, narrower and move up/down/left/right.
+// A small handle in the picked corner of the focused window — all four
+// corners are possible. Clicking it opens a pad with the resize actions
+// (narrower/wider and their vertical twins taller/shorter) plus the
+// move up/down/left/right arrows.
 //
 // Hyprland has no per-window decoration we can hang a widget off, so the
 // geometry comes from `hyprctl -j activewindow` + `hyprctl -j monitors` on a
@@ -25,7 +27,7 @@ Item {
   property int buttonSize: 34
   readonly property int minButtonSize: 16   // below this the grip stops being clickable
   readonly property int maxButtonSize: 96
-  readonly property int buttonInset: 6      // px inside the window's top-left corner
+  readonly property int buttonInset: 6      // px inside the window's corner
   readonly property int step: 80            // px per resize / nudge click
   readonly property int pollInterval: 300   // ms between geometry refreshes
   readonly property int autoCloseMs: 6000   // pad closes itself after this much idle
@@ -45,7 +47,9 @@ Item {
     { glyph: "←", label: "Move left", kind: "left" },
     { glyph: "→", label: "Move right", kind: "right" },
     { glyph: "−", label: "Narrower", kind: "narrower" },
-    { glyph: "+", label: "Wider", kind: "wider" }
+    { glyph: "+", label: "Wider", kind: "wider" },
+    { glyph: "↥", label: "Taller", kind: "taller" },
+    { glyph: "↧", label: "Shorter", kind: "shorter" }
   ]
 
   // Rebuilt only when the set of possible moves changes, so the Repeater is not
@@ -73,27 +77,109 @@ Item {
 
   readonly property bool hasWindow: address !== "" && winW > 0 && winH > 0 && screenName !== ""
 
+  // A full-width tile — side margins included — shares a horizontal edge with
+  // the tile above/below, so vertical resize acts there. Threshold leaves room
+  // for the usual gap + border margins.
+  readonly property bool stacked: winW >= screenWidth - 60
+
+  // A point inside another visible window on the same monitor, for the
+  // corner-chase animation's first detour leg.
+  property int detourX: 0
+  property int detourY: 0
+
   property bool popupOpen: false
 
   // -------------------------------------------------------------- geometry
-  readonly property int buttonX: Math.round(winX + buttonInset)
-  readonly property int buttonY: Math.round(winY + buttonInset)
-  // The pad hangs to the right of the grip; clamp it to the screen, so a grip
-  // near the screen's right edge still opens a fully visible pad.
-  readonly property int popupX: Math.max(4, Math.min(buttonX,
-                                                   Math.max(4, screenWidth - popupWidth - 4)))
-  readonly property bool popupAbove: buttonY + buttonSize + popupGap + popupHeight > screenHeight
+  readonly property int buttonX: gripLeft
+    ? Math.round(winX + buttonInset)
+    : Math.round(winX + winW - buttonInset - buttonSize)
+  readonly property int buttonY: gripTop
+    ? Math.round(winY + buttonInset)
+    : Math.round(winY + winH - buttonInset - buttonSize)
+  // The pad opens away from the nearest horizontal screen edge: a left-side
+  // grip hangs it to the right, a right-side grip hangs it left.
+  readonly property int popupX: gripLeft
+    ? Math.max(4, Math.min(buttonX, Math.max(4, screenWidth - popupWidth - 4)))
+    : Math.max(4, Math.min(buttonX + buttonSize - popupWidth,
+                            Math.max(4, screenWidth - popupWidth - 4)))
+  // Vertically the pad opens away from the grip's side — below a top grip,
+  // above a bottom grip — and is clamped so it never falls off the screen.
+  readonly property bool popupAbove: gripTop
+    ? buttonY + buttonSize + popupGap + popupHeight > screenHeight
+    : buttonY - popupHeight - popupGap >= 4
   readonly property int popupY: popupAbove
     ? Math.max(4, buttonY - popupHeight - popupGap)
-    : buttonY + buttonSize + popupGap
+    : Math.min(buttonY + buttonSize + popupGap,
+               Math.max(4, screenHeight - popupHeight - 4))
 
   // -------------------------------------------------------------- settings
-  // The size lives outside the plugin directory, so `git pull` never conflicts
-  // with it: ~/.config/omarchy/window-controls.json, {"buttonSize": 34}
+  // All settings live outside the plugin directory, so `git pull` never
+  // conflicts with them: ~/.config/omarchy/window-controls.json
+  // {"buttonSize": 34, "corner": "tl", "hints": true, "gripEnabled": true}
   readonly property string settingsPath: "$HOME/.config/omarchy/window-controls.json"
 
+  // Where the grip sits inside the focused window: "tl", "tr", "bl" or
+  // "br". The bar widget's menu sets it; the pad opens away from it.
+  property string corner: "tl"
+  readonly property bool gripLeft: corner === "tl" || corner === "bl"
+  readonly property bool gripTop: corner === "tl" || corner === "tr"
+
+  // Show the hotkey hints on the pad's rows (the bar menu can hide them).
+  property bool hints: true
+
+  // The grip can be switched off entirely from the bar; the shell keeps
+  // running so the menu can switch it back on.
+  property bool gripEnabled: true
+
   function notify(message) {
-    Quickshell.execDetached(["omarchy-notification-send", "Window controls", message])
+    Quickshell.execDetached(["omarchy-notification-send", "Control the windows", message])
+  }
+
+  function statusJson() {
+    return JSON.stringify({
+      address: root.address,
+      x: root.winX,
+      y: root.winY,
+      width: root.winW,
+      height: root.winH,
+      floating: root.winFloating,
+      rows: root.rows.map(function(row) { return row.kind }),
+      hints: root.rows.map(function(row) { return root.hotkeyFor(row.kind) }),
+      screen: root.screenName,
+      buttonSize: root.buttonSize,
+      corner: root.corner,
+      hints: root.hints,
+      gripEnabled: root.gripEnabled,
+      open: root.popupOpen
+    })
+  }
+
+  // Fired on the screen holding the focused window so the corner-chase
+  // animation plays exactly where the grip lives.
+  signal playCornerAnim(int detourX, int detourY, int tx, int ty)
+
+    // Where the corner-chase animation should end: the grip's centre, or the nearest top
+    // corner of the screen when no window is focused.
+  function cornerTarget() {
+    return {
+      x: hasWindow ? buttonX + Math.round(buttonSize / 2)
+        : (gripLeft ? 24 : Math.max(24, screenWidth - 24)),
+      y: hasWindow ? buttonY + Math.round(buttonSize / 2)
+        : (gripTop ? 44 : Math.max(44, screenHeight - 24))
+    }
+  }
+
+  function announceCornerAnim() {
+    var target = cornerTarget()
+    // The mouse first visits another window; when none is known it bends
+    // through the far opposite side of the screen instead.
+    var dx = root.detourX
+    var dy = root.detourY
+    if (!dx && !dy) {
+      dx = Math.round(screenWidth * (gripLeft ? 0.36 : 0.64))
+      dy = Math.round(screenHeight * (root.gripTop ? 0.72 : 0.28))
+    }
+    root.playCornerAnim(dx, dy, target.x, target.y)
   }
 
   function setSize(value, persist) {
@@ -113,21 +199,62 @@ Item {
         + " Want the stock size back? Remove the plugin and clone it from GitHub again.")
     }
 
-    if (persist) root.saveSize(clamped)
+    if (persist) root.saveSettings()
     return clamped
   }
 
-  function saveSize(px) {
+  function saveSettings() {
+    var json = JSON.stringify({
+      buttonSize: root.buttonSize,
+      corner: root.corner,
+      hints: root.hints,
+      gripEnabled: root.gripEnabled
+    })
     Quickshell.execDetached(["sh", "-c",
       "mkdir -p \"$(dirname \"" + root.settingsPath + "\")\" && "
-      + "printf '{\"buttonSize\": %s}\\n' " + px + " > \"" + root.settingsPath + "\""])
+      + "printf '%s\\n' '" + json + "' > \"" + root.settingsPath + "\""])
+  }
+
+  function setCorner(value, persist) {
+    var next = String(value)
+    if (next !== "tr" && next !== "bl" && next !== "br") next = "tl"
+    var changed = next !== root.corner
+    root.corner = next
+    if (persist) root.saveSettings()
+    if (changed) root.announceCornerAnim()
+  }
+
+  function setHints(value, persist) {
+    root.hints = value === true
+    if (persist) root.saveSettings()
+  }
+
+  function setEnabled(value, persist) {
+    var next = value === true
+    var changed = next !== root.gripEnabled
+    root.gripEnabled = next
+    if (!root.gripEnabled) root.closePopup()
+    if (persist) root.saveSettings()
+    // Switching the grip on replays the chase, so the cat "brings" it back.
+    if (next && changed) root.announceCornerAnim()
   }
 
   function applySettings(raw) {
-    if (!raw || raw.trim() === "") return   // never configured: keep the default
+    if (!raw || raw.trim() === "") return   // never configured: keep the defaults
     var parsed
     try { parsed = JSON.parse(raw) } catch (error) { return }
-    if (parsed && parsed.buttonSize !== undefined) root.setSize(parsed.buttonSize, false)
+    if (!parsed) return
+    if (parsed.corner !== undefined) {
+      var storedCorner = String(parsed.corner)
+      if (storedCorner === "tl" || storedCorner === "tr"
+          || storedCorner === "bl" || storedCorner === "br") root.corner = storedCorner
+    }
+    if (parsed.hints !== undefined) root.hints = parsed.hints === true
+    if (parsed.gripEnabled !== undefined) {
+      root.gripEnabled = parsed.gripEnabled === true
+      if (!root.gripEnabled) root.popupOpen = false
+    }
+    if (parsed.buttonSize !== undefined) root.setSize(parsed.buttonSize, false)
   }
 
   function loadSettings() {
@@ -138,7 +265,7 @@ Item {
   // Dispatch through Hyprland's Lua dispatchers, addressed by window so the
   // action never depends on what happens to hold focus while the pad is used.
   function act(kind) {
-    if (!root.hasWindow || !kind) return
+    if (!root.hasWindow || !root.gripEnabled || !kind) return
 
     var target = 'address:' + root.address
     var expression = ""
@@ -147,6 +274,10 @@ Item {
       var delta = root.resizeDelta(kind === "wider" ? root.step : -root.step)
       expression = 'hl.dsp.window.resize({ window = "' + target + '", x = ' + delta.x
         + ', y = ' + delta.y + ', relative = true })'
+    } else if (kind === "taller" || kind === "shorter") {
+      var vDelta = root.resizeDeltaV(kind === "taller" ? root.step : -root.step)
+      expression = 'hl.dsp.window.resize({ window = "' + target + '", x = ' + vDelta.x
+        + ', y = ' + vDelta.y + ', relative = true })'
     } else if (root.winFloating) {
       var nudgeX = kind === "left" ? -root.step : (kind === "right" ? root.step : 0)
       var nudgeY = kind === "up" ? -root.step : (kind === "down" ? root.step : 0)
@@ -165,7 +296,7 @@ Item {
   }
 
   function togglePopup() {
-    if (!root.hasWindow) return
+    if (!root.hasWindow || !root.gripEnabled) return
     root.popupOpen = !root.popupOpen
     if (root.popupOpen) {
       root.refreshHotkeys()
@@ -280,11 +411,46 @@ Item {
     root.screenName = String(mon.name || "")
     root.screenWidth = monW
     root.screenHeight = monH
+
+    // Remember a different mapped window on this monitor so the chase can
+    // dart through it; preferring windows on the focused workspace.
+    var list = Array.isArray(data.clients) ? data.clients : []
+    var detour = null
+    var detourSameWs = null
+    for (var i = 0; i < list.length; i++) {
+      var other = list[i]
+      if (!other || !other.address) continue
+      if (String(other.address) === nextAddress) continue
+      if (other.mapped === false || other.hidden === true) continue
+      if (Number(other.monitor) !== Number(win.monitor)) continue
+      var otherAt = other.at || []
+      var otherSize = other.size || []
+      if (otherAt.length < 2 || otherSize.length < 2) continue
+      if (!(otherSize[0] > 0) || !(otherSize[1] > 0)) continue
+      var candidate = other
+      if (Number((candidate.workspace || {}).id) === Number((win.workspace || {}).id)) detourSameWs = candidate
+      else if (!detour) detour = candidate
+    }
+    var chosen = detourSameWs || detour
+    if (chosen) {
+      var cAt = chosen.at || []
+      var cSize = chosen.size || []
+      root.detourX = Math.round(Number(cAt[0]) - Number(mon.x) + Number(cSize[0]) * 0.3)
+      root.detourY = Math.round(Number(cAt[1]) - Number(mon.y) + Number(cSize[1]) * 0.3)
+    }
+
     root.applyRows(moves, floating)
   }
 
   function isOnScreen(screenName) {
     return root.hasWindow && String(screenName || "") === root.screenName
+  }
+
+  // Which surface the chase plays on: the focused window's screen when one
+  // is tracked, the primary screen otherwise.
+  function animScreen(screenName) {
+    if (!root.hasWindow) return String(screenName || "") === (Quickshell.screens[0] ? Quickshell.screens[0].name : "")
+    return root.isOnScreen(screenName)
   }
 
   function overlaps(aStart, aLength, bStart, bLength) {
@@ -298,6 +464,12 @@ Item {
       var directional = row.kind === "left" || row.kind === "right"
         || row.kind === "up" || row.kind === "down"
       if (!floating && directional && moves[row.kind] !== true) continue
+      // A full-width tile can change its height (shared horizontal edge) and
+      // any floating window too; a side-by-side tile is full height, so the
+      // vertical resize rows would do nothing there — drop them like a
+      // blocked arrow.
+      var vertical = row.kind === "taller" || row.kind === "shorter"
+      if (vertical && !floating && !root.stacked) continue
       out.push(row)
     }
     return out
@@ -309,12 +481,25 @@ Item {
     var delta = { x: 0, y: 0 }
     if (root.winFloating) {
       delta.x = magnitude
-    } else if (root.winW < root.screenWidth - 4) {
+    } else if (root.stacked) {
+      // Stacked tiles share a horizontal edge instead.
+      delta.y = (root.winY + root.winH / 2) < root.screenHeight / 2 ? magnitude : -magnitude
+    } else {
       // Side-by-side tiles share a vertical edge, so the delta grows the window
       // only when it moves that edge away from the screen centre.
       delta.x = (root.winX + root.winW / 2) < root.screenWidth / 2 ? magnitude : -magnitude
-    } else {
-      // Stacked tiles share a horizontal edge instead.
+    }
+    return delta
+  }
+
+  // The vertical twin of resizeDelta: taller/shorter move the shared
+  // horizontal edge of stacked tiles, and change the height of floating
+  // windows — where − / + only ever touched the width.
+  function resizeDeltaV(magnitude) {
+    var delta = { x: 0, y: 0 }
+    if (root.winFloating) {
+      delta.y = magnitude
+    } else if (root.stacked) {
       delta.y = (root.winY + root.winH / 2) < root.screenHeight / 2 ? magnitude : -magnitude
     }
     return delta
@@ -355,6 +540,12 @@ Item {
     if (kind === "left") return descriptions["Swap window to the left"] || ""
     if (kind === "right") return descriptions["Swap window to the right"] || ""
     if (!root.hasWindow) return ""
+    if (kind === "taller" || kind === "shorter") {
+      if (root.winFloating) return ""
+      var edge = root.resizeDeltaV(kind === "taller" ? root.step : -root.step)
+      if (edge.y < 0) return descriptions["Shrink window up"] || ""
+      return descriptions["Expand window down"] || ""
+    }
     var delta = root.resizeDelta(kind === "wider" ? root.step : -root.step)
     if (delta.y < 0) return descriptions["Shrink window up"] || ""
     if (delta.y > 0) return descriptions["Expand window down"] || ""
@@ -462,22 +653,25 @@ Item {
       })
     }
 
+    // The bar widget drives these; they also work as `omarchy-shell
+    // window-controls corner tr` and friends from scripts.
+    function corner(value: string): string {
+      root.setCorner(value, true)
+      return root.statusJson()
+    }
+
+    function hints(value: string): string {
+      root.setHints(value === "true", true)
+      return root.statusJson()
+    }
+
+    function enabled(value: string): string {
+      root.setEnabled(value === "true", true)
+      return root.statusJson()
+    }
+
     function status(): string {
-      return JSON.stringify({
-        address: root.address,
-        x: root.winX,
-        y: root.winY,
-        width: root.winW,
-        height: root.winH,
-        floating: root.winFloating,
-        rows: root.rows.map(function(row) { return row.kind }),
-        hints: root.rows.map(function(row) { return root.hotkeyFor(row.kind) }),
-        screen: root.screenName,
-        buttonSize: root.buttonSize,
-        buttonX: root.buttonX,
-        buttonY: root.buttonY,
-        open: root.popupOpen
-      })
+      return root.statusJson()
     }
   }
 
@@ -493,7 +687,7 @@ Item {
 
       required property var modelData
 
-      visible: root.isOnScreen(modelData ? modelData.name : "")
+      visible: root.gripEnabled && root.isOnScreen(modelData ? modelData.name : "")
       screen: modelData
 
       color: "transparent"
@@ -537,6 +731,10 @@ Item {
           Shape {
             anchors.fill: parent
             preferredRendererType: Shape.CurveRenderer
+
+            // Seen from a bottom corner the trap sits upside down, board
+            // against the window's lower edge.
+            transform: Scale { xScale: 1; yScale: root.gripTop ? 1 : -1; origin.y: 50 }
 
             // board
             ShapePath {
@@ -596,7 +794,7 @@ Item {
 
       required property var modelData
 
-      visible: root.popupOpen && root.isOnScreen(modelData ? modelData.name : "")
+      visible: root.popupOpen && root.gripEnabled && root.isOnScreen(modelData ? modelData.name : "")
       screen: modelData
 
       color: "transparent"
@@ -671,6 +869,7 @@ Item {
               // The hotkey that does the same thing, so the pad teaches the keys.
               Text {
                 id: hintText
+                visible: root.hints
                 anchors.right: parent.right
                 anchors.rightMargin: 4
                 anchors.verticalCenter: parent.verticalCenter
@@ -689,6 +888,62 @@ Item {
                 onClicked: root.act(row.modelData.kind)
               }
             }
+          }
+        }
+      }
+    }
+  }
+
+  // -------------------------------------------------------- corner chase
+  // A purely cosmetic surface that plays the corner animation whenever the
+  // corner is picked or the grip is switched back on: a mouse darts to the
+  // corner leaving a fading stripe, the cat follows and jumps. It never
+  // takes input: the region mask is a zero-size item, so the whole surface
+  // is click-through,
+  Variants {
+    model: Quickshell.screens
+
+    PanelWindow {
+      id: animWindow
+
+      required property var modelData
+
+      visible: cornerAnim.playing && root.animScreen(modelData ? modelData.name : "")
+      screen: modelData
+
+      color: "transparent"
+      exclusionMode: ExclusionMode.Ignore
+      WlrLayershell.namespace: "omarchy-window-controls-anim"
+      WlrLayershell.layer: WlrLayer.Overlay
+      WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+      anchors {
+        top: true
+        bottom: true
+        left: true
+        right: true
+      }
+
+      mask: Region { item: nothing }
+
+      Item {
+        id: nothing
+        width: 0
+        height: 0
+      }
+
+      CornerAnimation {
+        id: cornerAnim
+
+        width: parent?.width ?? 0
+        height: parent?.height ?? 0
+
+        Connections {
+          target: root
+          function onPlayCornerAnim(detourX, detourY, tx, ty) {
+            console.info("corner-anim trigger on", animWindow.modelData ? animWindow.modelData.name : "?")
+            if (!root.animScreen(animWindow.modelData ? animWindow.modelData.name : "")) return
+            cornerAnim.play(root.corner, detourX, detourY, tx, ty, root.screenWidth, root.screenHeight)
           }
         }
       }

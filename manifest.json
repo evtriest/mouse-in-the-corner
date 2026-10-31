@@ -1,13 +1,20 @@
 {
   "schemaVersion": 1,
   "id": "eep.window-controls",
-  "name": "Window controls",
-  "version": "1.0.0",
+  "name": "Control the windows",
+  "version": "1.1.0",
   "author": "eep",
-  "description": "Corner button on the focused window to resize it wider/narrower or move it within the layout",
-  "kinds": ["overlay"],
+  "description": "Corner button on the focused window to resize it or move it within the layout, plus a bar button with a cat menu",
+  "kinds": ["overlay", "bar-widget"],
   "keepLoaded": true,
   "entryPoints": {
-    "overlay": "WindowControls.qml"
+    "overlay": "WindowControls.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Control the windows",
+    "description": "Cat button that toggles the grip, picks its corner (all four) and the pad's keybinding hints",
+    "category": "Tools",
+    "allowMultiple": false
   }
 }
