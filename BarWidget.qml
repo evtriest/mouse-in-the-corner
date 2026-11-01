@@ -58,7 +58,8 @@ Panel {
   }
 
   function sync() {
-    if (!statusProc.running) statusProc.running = true
+    statusProc.running = false
+    statusProc.running = true
   }
 
   Process {
@@ -73,6 +74,9 @@ Panel {
 
   onOpenedChanged: if (opened) root.sync()
 
+  // Kept on the plugin's own target: the overlay already owns
+  // `window-controls`, and a second handler on that name would shadow its
+  // `status`/`enabled`/`hints`/`corner` functions, which this menu calls.
   IpcHandler {
     target: "eep.window-controls"
 
@@ -174,8 +178,13 @@ Panel {
           foreground: root.bar.foreground
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
+          // ToggleSwitch's `toggled()` carries no argument and the caller
+          // owns the value, so `checked` here is still the state before the
+          // click — flip it, then send the new value to the overlay.
           onToggled: {
-            root.dispatch(["enabled", checked ? "true" : "false"])
+            var next = !root.gripEnabled
+            root.gripEnabled = next
+            root.dispatch(["enabled", next ? "true" : "false"])
           }
         }
       }
@@ -251,7 +260,9 @@ Panel {
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
           onToggled: {
-            root.dispatch(["hints", checked ? "true" : "false"])
+            var next = !root.hints
+            root.hints = next
+            root.dispatch(["hints", next ? "true" : "false"])
           }
         }
       }
